@@ -7,3 +7,6 @@
 __pycache__
 
 ./game/__pycache__
+
+# model
+./model
