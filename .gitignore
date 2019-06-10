@@ -1,0 +1,9 @@
+# ignore all pyc files.
+*.pyc
+*.DS_Store
+
+# ignore all __pycache__ files
+
+__pycache__
+
+./game/__pycache__
