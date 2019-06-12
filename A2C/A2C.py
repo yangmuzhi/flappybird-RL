@@ -102,6 +102,31 @@ class A2C:
             self.save_model(f"final-{i}-eps-.h5")
 
 
+    def random_act(self,episode):
+
+        tqdm_e = tqdm(range(episode))
+        for i in tqdm_e:
+            env = game.GameState()
+            state = env.reset()
+            cum_r = 0
+            done = False
+            while not done:
+
+                action_array = np.array([0,0])
+                action_array[np.random.randint(2)] = 1
+                _, reward, done = env.step(action_array)
+                cum_r += reward
+
+            self.cum_r.append(cum_r)
+            tqdm_e.set_description("Score: " + str(cum_r))
+            tqdm_e.refresh()
+            if (i > 10000) &  (not(i % 10000)):
+                self.save_model(f"{i}-eps-.h5")
+            del env
+
+
+
+
 
     def save_model(self, save_name):
         path = self.model_path

@@ -1,37 +1,46 @@
 import game.wrapped_flappy_bird as game
 import numpy as np
-
 import matplotlib.pyplot as plt
 from A2C.A2C import A2C
 from utils.net import conv_shared
 from utils.im_processor import im_processor
 
-game_state = game.GameState()
+import time
+
+env = game.GameState()
 
 
-# action [1,0], [0,1]
-# action = np.array([1,0])
-
-state = game_state.reset()
-# 使用原始图片试试
+state = env.reset()
+d = 0
+while not d:
+    a = np.array([0,0])
+    a[np.random.randint(2)] = 1
+    state, reward, d = env.step(a)
 
 # state = cv2.resize(state, (80, 80))
-plt.imshow(state)
-plt.show()
+    plt.imshow(state)
+    plt.show()
+    # time.sleep(0.5)
 
+reward
+
+state.shape
 state = im_processor(state)
 state_shape = state.shape
 
-a2c = A2C(state_shape=state_shape, n_action=2, net=conv_shared)
+a2c = A2C(state_shape=(80,80,1), n_action=2, net=conv_shared)
 a2c.actor.model.summary()
 a2c.critic.model.summary()
 
-# state = state[np.newaxis,:]
-# a2c.actor.explore(state)
+state = im_processor(state)[np.newaxis,:]
+a2c.actor.explore(state)
+a2c.actor.action_prob(state)
 
-a2c.train(episode=1000)
 
+a2c.train(episode=100)
+a2c.random_act(100)
 
+np.random.randint(2)
 # del game_state
 
 #
