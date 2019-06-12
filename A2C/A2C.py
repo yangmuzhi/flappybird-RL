@@ -4,7 +4,7 @@ from keras.models import Model
 from keras import regularizers
 from keras.utils import to_categorical
 from keras.layers import Input, Dense, Flatten
-from utils.sample_buffer import Sampling_Pool
+from collections import deque
 from .Actor import Actor
 from .Critic import Critic
 import tensorflow as tf
@@ -13,8 +13,8 @@ import os
 from utils.im_processor import im_processor
 import game.wrapped_flappy_bird as game
 
+STACK_NUM = 5
 
-sampling_pool = Sampling_Pool()
 class A2C:
     """
     """
@@ -56,77 +56,71 @@ class A2C:
             discounted_reward[t] = cumul_reward
         return discounted_reward
 
-    def update(self, sampling_pool):
-        state, reward, done, action, next_state = \
-            sampling_pool.get_sample(shuffle=False)
+    def update(self, state, reward, done, action, next_state):
+        state = np.array(state)
+        reward = np.array(reward)
+        action = np.array(action)
+        next_state = np.array(next_state)
+        # print("state dims", state.shape)
         value = self.critic.value(state)
-        # next_value = self.critic.value(next_state)
-        # td_error = reward + self.gamma * next_value - value
-        # new_value = reward + self.gamma * next_value
         discounted_reward = self.discount(reward)
         advantages = discounted_reward - value
         self.actor_update([state, action, advantages])
         self.critic_update([state, discounted_reward])
-        sampling_pool.clear()
 
-    def train(self,episode, sampling_pool=sampling_pool):
+    def train(self,episode):
 
         with graph.as_default():
             tqdm_e = tqdm(range(episode))
+            env = game.GameState()
             for i in tqdm_e:
-                env = game.GameState()
                 state = env.reset()
                 cum_r = 0
                 done = False
+                state = np.squeeze(im_processor(state))
+                state_stack = np.stack([state for i in range(STACK_NUM)], axis=2)
+                s=deque()
+                a=deque()
+                r=deque()
+                d=deque()
+                next_s=deque()
                 while not done:
-
-                    state = im_processor(state)
-                    state_newaxis = state[np.newaxis,:]
+                    state_newaxis = state_stack[np.newaxis,:]
                     action = self.actor.explore(state_newaxis)
                     action_array = np.array([0,0])
                     action_array[action] = 1
-                    next_state,reward,done = env.step(action_array)
-                    action_onehot = to_categorical(action, self.n_action)
-                    ob = (state, reward, done, action_onehot, next_state)
-                    sampling_pool.add_to_buffer(ob)
-                    state = next_state
-                    cum_r += reward
+                    next_im,reward,done = env.step(action_array)
+                    next_im = im_processor(next_im)
+                    # print("dims next_im", next_im.shape)
+                    # print("dims state_stack", state_stack.shape)
 
-                self.update(sampling_pool)
+                    next_state_stack = np.append(next_im,state_stack[..., :-1], axis=2)
+                    action_onehot = to_categorical(action, self.n_action)
+                    # ob = (state, reward, done, action_onehot, next_state)
+                    s.append(state_stack)
+                    a.append(action_onehot)
+                    r.append(reward)
+                    d.append(done)
+                    next_s.append(next_state_stack)
+                    # sampling_pool.add_to_buffer(ob)
+                    state_stack = next_state_stack
+                    cum_r += reward
+                    # print("state_stack shape", state_stack.shape)
+
                 self.cum_r.append(cum_r)
                 tqdm_e.set_description("Score: " + str(cum_r))
                 tqdm_e.refresh()
-                if (i > 10000) &  (not(i % 10000)):
+
+                # train
+                # print(s[0])
+                # print("s shape", np.array(list(s)).shape)
+                # print("update")
+                self.update(s, r, d, a, next_s)
+
+                if (i > 10000) &  (not(i % 50000)):
                     self.save_model(f"{i}-eps-.h5")
-                del env
+
             self.save_model(f"final-{i}-eps-.h5")
-
-
-    def random_act(self,episode):
-
-        tqdm_e = tqdm(range(episode))
-        for i in tqdm_e:
-            env = game.GameState()
-            state = env.reset()
-            cum_r = 0
-            done = False
-            while not done:
-
-                action_array = np.array([0,0])
-                action_array[np.random.randint(2)] = 1
-                _, reward, done = env.step(action_array)
-                cum_r += reward
-
-            self.cum_r.append(cum_r)
-            tqdm_e.set_description("Score: " + str(cum_r))
-            tqdm_e.refresh()
-            if (i > 10000) &  (not(i % 10000)):
-                self.save_model(f"{i}-eps-.h5")
-            del env
-
-
-
-
 
     def save_model(self, save_name):
         path = self.model_path
