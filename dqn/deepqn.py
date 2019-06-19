@@ -47,16 +47,14 @@ class DQN:
             state = env.reset()
             cum_r = 0
             done = False
-            state = im_processor(state)
             while not done:
-                STATUS = "explore"
+                # STATUS = "explore"
                 state_newaxis = state[np.newaxis,:]
                 action = self.agent.e_greedy_action(state_newaxis)
                 action_array = np.array([0,0])
                 action_array[action] = 1
                 next_state,reward,done = env.step(action_array)
                 action_onehot = to_categorical(action, self.n_action)
-                next_state = im_processor(next_state)
                 ob = (state, reward, done, action_onehot, next_state)
                 self.sampling_pool.add_to_buffer(ob)
                 state = next_state

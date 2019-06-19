@@ -8,7 +8,7 @@ from pygame.locals import *
 from itertools import cycle
 
 # FPS = 30
-FPS = 500
+FPS = 60
 SCREENWIDTH  = 288
 SCREENHEIGHT = 512
 
@@ -37,9 +37,12 @@ class GameState:
         self.playery = int((SCREENHEIGHT - PLAYER_HEIGHT) / 2)
         self.basex = 0
         self.baseShift = IMAGES['base'].get_width() - BACKGROUND_WIDTH
+        self.gapY = []
 
-        newPipe1 = getRandomPipe()
-        newPipe2 = getRandomPipe()
+        newPipe1, gapY = getRandomPipe()
+        self.gapY.append(gapY)
+        newPipe2, gapY = getRandomPipe()
+        self.gapY.append(gapY)
         self.upperPipes = [
             {'x': SCREENWIDTH, 'y': newPipe1[0]['y']},
             {'x': SCREENWIDTH + (SCREENWIDTH / 2), 'y': newPipe2[0]['y']},
@@ -88,6 +91,7 @@ class GameState:
                 self.score += 1
                 #SOUNDS['point'].play()
                 reward = 1
+                _ = self.gapY.pop(0)
 
         # playerIndex basex change
         if (self.loopIter + 1) % 3 == 0:
@@ -111,7 +115,8 @@ class GameState:
 
         # add new pipe when first pipe is about to touch left of screen
         if 0 < self.upperPipes[0]['x'] < 5:
-            newPipe = getRandomPipe()
+            newPipe, gapY = getRandomPipe()
+            self.gapY.append(gapY)
             self.upperPipes.append(newPipe[0])
             self.lowerPipes.append(newPipe[1])
 
@@ -129,7 +134,7 @@ class GameState:
             #SOUNDS['die'].play()
             terminal = True
             self.__init__()
-            reward = -100
+            reward = -1
 
         # draw sprites
         SCREEN.blit(IMAGES['background'], (0,0))
@@ -144,11 +149,15 @@ class GameState:
         SCREEN.blit(IMAGES['player'][self.playerIndex],
                     (self.playerx, self.playery))
 
-        image_data = pygame.surfarray.array3d(pygame.display.get_surface())
+        # image_data = pygame.surfarray.array3d(pygame.display.get_surface())
         pygame.display.update()
         FPSCLOCK.tick(FPS)
-        #print self.upperPipes[0]['y'] + PIPE_HEIGHT - int(BASEY * 0.2)
-        return image_data, reward, terminal
+        # print(self.upperPipes[0]['y'] + PIPE_HEIGHT - int(BASEY * 0.2))
+        # return image_data, reward, terminal
+        v = self.lowerPipes[0]['y'] - self.playery
+        h = self.lowerPipes[0]['x'] - self.playerx
+        g = self.gapY[0]
+        return np.array([v,h,g]), reward, terminal
 
 def getRandomPipe():
     """returns a randomly generated pipe"""
@@ -160,10 +169,12 @@ def getRandomPipe():
     gapY += int(BASEY * 0.2)
     pipeX = SCREENWIDTH + 10
 
+
     return [
         {'x': pipeX, 'y': gapY - PIPE_HEIGHT},  # upper pipe
-        {'x': pipeX, 'y': gapY + PIPEGAPSIZE},  # lower pipe
-    ]
+        {'x': pipeX, 'y': gapY + PIPEGAPSIZE},
+         # lower pipe
+    ], gapY
 
 
 def showScore(score):

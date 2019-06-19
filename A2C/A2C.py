@@ -13,7 +13,7 @@ import os
 from utils.im_processor import im_processor
 import game.wrapped_flappy_bird as game
 
-STACK_NUM = 5
+STACK_NUM = 1
 
 class A2C:
     """
@@ -54,6 +54,7 @@ class A2C:
         for t in reversed(range(0, len(reward))):
             cumul_reward = reward[t] + cumul_reward * self.gamma
             discounted_reward[t] = cumul_reward
+
         return discounted_reward
 
     def update(self, state, reward, done, action, next_state):
@@ -67,55 +68,94 @@ class A2C:
         advantages = discounted_reward - value
         self.actor_update([state, action, advantages])
         self.critic_update([state, discounted_reward])
+        print("update")
+
+    def explore(self, act_police,episode=100):
+        """增加explore的目的是 使用一个人为策略，收集一些靠谱的数据"""
+        tqdm_e = tqdm(range(episode))
+        env = game.GameState()
+        print("explore")
+
+        for i in tqdm_e:
+            done = 0
+            state = env.reset()
+            act_police.reset()
+            # state = np.squeeze(im_processor(state))
+            state_stack = np.stack([state for i in range(STACK_NUM)], axis=2)
+            s=deque()
+            a=deque()
+            r=deque()
+            d=deque()
+            next_s=deque()
+
+            while not done:
+                action = act_police.step()
+                state_newaxis = state_stack[np.newaxis,:]
+                action_array = np.array([0,0])
+                action_array[action] = 1
+                next_im,reward,done = env.step(action_array)
+                # next_im = im_processor(next_im)
+
+                next_state_stack = np.append(next_im,state_stack[..., :-1], axis=2)
+                action_onehot = to_categorical(action, self.n_action)
+
+                s.append(state_stack)
+                a.append(action_onehot)
+                r.append(reward)
+                d.append(done)
+                next_s.append(next_state_stack)
+
+            self.update(s, r, d, a, next_s)
+
 
     def train(self,episode):
 
         with graph.as_default():
             tqdm_e = tqdm(range(episode))
             env = game.GameState()
+            s=deque()
+            a=deque()
+            r=deque()
+            d=deque()
+            next_s=deque()
             for i in tqdm_e:
                 state = env.reset()
                 cum_r = 0
                 done = False
-                state = np.squeeze(im_processor(state))
+                # state = np.squeeze(im_processor(state))
                 state_stack = np.stack([state for i in range(STACK_NUM)], axis=2)
-                s=deque()
-                a=deque()
-                r=deque()
-                d=deque()
-                next_s=deque()
+
                 while not done:
                     state_newaxis = state_stack[np.newaxis,:]
                     action = self.actor.explore(state_newaxis)
                     action_array = np.array([0,0])
                     action_array[action] = 1
                     next_im,reward,done = env.step(action_array)
-                    next_im = im_processor(next_im)
-                    # print("dims next_im", next_im.shape)
-                    # print("dims state_stack", state_stack.shape)
-
+                    # next_im = im_processor(next_im)
                     next_state_stack = np.append(next_im,state_stack[..., :-1], axis=2)
                     action_onehot = to_categorical(action, self.n_action)
-                    # ob = (state, reward, done, action_onehot, next_state)
+
                     s.append(state_stack)
                     a.append(action_onehot)
                     r.append(reward)
                     d.append(done)
                     next_s.append(next_state_stack)
-                    # sampling_pool.add_to_buffer(ob)
                     state_stack = next_state_stack
                     cum_r += reward
-                    # print("state_stack shape", state_stack.shape)
+
 
                 self.cum_r.append(cum_r)
                 tqdm_e.set_description("Score: " + str(cum_r))
                 tqdm_e.refresh()
 
                 # train
-                # print(s[0])
-                # print("s shape", np.array(list(s)).shape)
-                # print("update")
+
                 self.update(s, r, d, a, next_s)
+                s=deque()
+                a=deque()
+                r=deque()
+                d=deque()
+                next_s=deque()
 
                 if (i > 10000) &  (not(i % 50000)):
                     self.save_model(f"{i}-eps-.h5")

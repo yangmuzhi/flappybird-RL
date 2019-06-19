@@ -15,7 +15,7 @@ from keras.layers import Activation
 
 def simple_net(inputs):
     x = Dense(64, activation='relu')(inputs)
-    x = Dense(128, activation='relu')(x)
+    # x = Dense(128, activation='relu')(x)
     return x
 
 def conv_shared(inputs):
