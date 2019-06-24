@@ -29,6 +29,7 @@ state, reward, done = env.step(action)
 ```
 ## result
 
+- [video](https://m.bilibili.com/video/av56058193.html?share_source=copy_link&p=1&ts=1560911437&share_medium=iphone&bbid=a54aaee71ee15ecb319e2e341c69a0ab)
 
 
 ## todo
