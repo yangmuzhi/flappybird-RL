@@ -5,22 +5,34 @@
 
 ## git clone
 
-```
+```{python}
+
 git clone https://github.com/yangmuzhi/flappybird-RL.git
 cd flappybird
+python train_a3c.py
 
 ```
+## environment
 
-## test
+env is in the game file.
 
-have a look in `test.py`
+```{python}
 
-when you use it, the model while saved at  `model` file
+import game.wrapped_flappy_bird as game
+import numpy as np
+env = game.GameState()
+state = env.reset()
+action = np.zeros(2)
+action[np.random.randint(2)] = 1
+state, reward, done = env.step(action)
+
+```
+## result
+
+
 
 ## todo
 
-- [ ] training  framework
-- [ ] save trained models
-- [ ] better readme
-- [ ] how to play
-- [ ] video
+- [x] training  framework
+- [x] save trained models
+- [x] better readme
